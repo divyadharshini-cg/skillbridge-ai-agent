@@ -9,13 +9,37 @@ ENV/
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
+*.pyo
 
 # Pytest
 .pytest_cache/
+.coverage
+htmlcov/
 
 # Streamlit config / run files
 .streamlit/
 
+# Build / packaging artifacts
+dist/
+build/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Exported report outputs (generated at runtime)
+exports/
+output/
+reports/
+*.md.export
+*.json.export
+
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo

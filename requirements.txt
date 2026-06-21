@@ -1,5 +1,15 @@
+# Core UI framework
 streamlit>=1.30.0
+
+# Environment variable management
 python-dotenv>=1.0.0
+
+# Testing
 pytest>=7.4.0
+
+# Data validation
 pydantic>=2.5.0
+
+# Google Gemini LLM client
+# NOTE: google-generativeai is deprecated; migrate to google-genai when updating llm_client.py
 google-generativeai>=0.3.0
