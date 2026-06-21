@@ -6,8 +6,13 @@ def export_json_report(report: Dict[str, Any], output_path: Optional[str] = None
     """
     Serializes a report dictionary to a JSON string format.
     Optionally writes to output_path if provided.
+    Guarantees that sensitive data is redacted.
     """
+    from tools.safety_tools import redact_sensitive_info
     json_str = json.dumps(report, indent=2)
+    # Redact any sensitive information
+    json_str = redact_sensitive_info(json_str)
+    
     if output_path:
         dir_name = os.path.dirname(os.path.abspath(output_path))
         if dir_name:
@@ -27,37 +32,40 @@ def export_markdown_report(report: Dict[str, Any], output_path: Optional[str] = 
         f"**Target Role:** {report.get('role', 'N/A')}",
         f"**Readiness Match Score:** {report.get('match_score', 'N/A')}%",
         "",
-        "## 👤 Candidate Details",
+        "## Candidate Details",
         f"- **Name:** {report.get('name', 'Student Candidate')}",
         f"- **Honesty Index Score:** {report.get('honesty_score', 'N/A')}/100",
         "",
-        "## 🎯 Matching Skills",
+        "## Matching Skills",
     ]
     for skill in report.get("matching_skills", []):
         lines.append(f"- {skill}")
     lines.append("")
     
-    lines.append("## ❌ Identified Skill Gaps")
+    lines.append("## Identified Skill Gaps")
     for gap in report.get("missing_skills", []):
         lines.append(f"- {gap}")
     lines.append("")
     
-    lines.append("## 💻 Recommended Project")
+    lines.append("## Recommended Project")
     lines.append(f"**Project Name:** {report.get('project_name', 'N/A')}")
     lines.append(f"**Complexity:** {report.get('project_complexity', 'Intermediate')}")
     lines.append(f"**Description:** {report.get('project_description', 'N/A')}")
     lines.append("")
     
-    lines.append("## 📅 Day-by-Day Preparation Plan Summary")
+    lines.append("## Day-by-Day Preparation Plan Summary")
     lines.append(report.get("roadmap_summary", "No plan summary provided."))
     lines.append("")
     
-    lines.append("## 📊 Subcategory Scores")
+    lines.append("## Subcategory Scores")
     for category, score in report.get("category_scores", {}).items():
         lines.append(f"- **{category}:** {score}/100")
     lines.append("")
     
     markdown_str = "\n".join(lines)
+    from tools.safety_tools import redact_sensitive_info
+    # Redact any sensitive information
+    markdown_str = redact_sensitive_info(markdown_str)
     
     if output_path:
         dir_name = os.path.dirname(os.path.abspath(output_path))

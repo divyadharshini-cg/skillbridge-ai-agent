@@ -1,6 +1,7 @@
 import streamlit as st
 import os
-from llm_client import LLMClient
+import time
+from llm_client import LLMClient, is_llm_available
 from agents.coordinator_agent import CoordinatorAgent
 
 # Page configuration
@@ -140,12 +141,18 @@ st.sidebar.markdown("### 🎓 Profile Dashboard")
 student_name = st.sidebar.text_input("Student Name", "Alex Mercer")
 target_role = st.sidebar.selectbox(
     "Target Internship Role",
-    ["Software Engineer Intern", "Data Scientist Intern", "Product Manager Intern", "UX Design Intern"]
+    ["AI/ML Intern", "Data Analyst Intern", "Python Developer Intern", "Web Developer Intern", "GenAI Intern"]
 )
 uploaded_file = st.sidebar.file_uploader("Upload Resume (PDF/Markdown)", type=["pdf", "md", "txt"])
 
 # Key Skills tag input helper
-skills_input = st.sidebar.text_area("Existing Core Skills (Comma-separated)", "Python, Git, Basic SQL, HTML/CSS")
+skills_input = st.sidebar.text_area("Existing Core Skills (Comma-separated)", "Python, Git, SQLite, HTML5, CSS3")
+
+# Privacy Note
+st.sidebar.markdown("""<div style="background: rgba(239,68,68,0.10); border:1px solid rgba(239,68,68,0.3); border-radius:8px; padding:0.65rem 0.85rem; margin: 0.5rem 0; font-size:0.78rem; color:#fca5a5;">
+🔒 <strong>Privacy Notice</strong><br>
+Resume/profile text is processed <em>only for this session</em>. Do not paste passwords, API keys, or highly sensitive personal data.
+</div>""", unsafe_allow_html=True)
 
 # Run Evaluation Button
 evaluate_btn = st.sidebar.button("🤖 Launch Multi-Agent Coaching", use_container_width=True)
@@ -169,16 +176,84 @@ st.sidebar.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Setup basic agents
+if is_llm_available():
+    st.sidebar.markdown("""
+    <div class="status-indicator" style="margin-top: 0.5rem;">
+        <div class="pulse-dot" style="background-color: #10b981; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);"></div>
+        <span>Running in Gemini-assisted mode</span>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    st.sidebar.markdown("""
+    <div class="status-indicator" style="margin-top: 0.5rem;">
+        <div class="pulse-dot" style="background-color: #f59e0b; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); animation: pulse-orange 1.6s infinite;"></div>
+        <span>Running in safe fallback mode</span>
+    </div>
+    <style>
+    @keyframes pulse-orange {
+        0% {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+        }
+        70% {
+            transform: scale(1);
+            box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+        }
+        100% {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+        }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Initialize Coordinator
 coordinator = CoordinatorAgent()
+
+# Initialize session state for report
+if "report" not in st.session_state:
+    st.session_state.report = None
+
+# Handle running the multi-agent orchestration
+if evaluate_btn:
+    # Read resume file if uploaded
+    profile_text = ""
+    if uploaded_file is not None:
+        try:
+            profile_text = uploaded_file.read().decode("utf-8", errors="ignore")
+        except Exception as e:
+            st.sidebar.error(f"Error reading file: {e}")
+            
+    if not profile_text:
+        # Build composite profile text from inputs
+        profile_text = (
+            f"Name: {student_name}\n"
+            f"Target Role: {target_role}\n"
+            f"Skills: {skills_input}\n"
+            f"Education: Bachelor of Science in Computer Science\n"
+            f"Branch: Computer Science"
+        )
+        
+    with st.spinner("🤖 Coordinating SkillBridge agents..."):
+        student_input = {
+            "name": student_name,
+            "target_role": target_role,
+            "current_skills": [s.strip() for s in skills_input.split(",") if s.strip()],
+            "profile_text": profile_text,
+            "learning_time": 2.0,
+            "deadline": 30
+        }
+        # Run coordinator pipeline
+        st.session_state.report = coordinator.execute_pipeline(student_input)
+        st.success("🎉 Multi-agent analysis completed successfully!")
 
 # Tabs layout
 tab_overview, tab_profile, tab_skills, tab_roadmap, tab_portfolio, tab_interview = st.tabs([
-    "💡 Overview", 
-    "👤 Profile Integrity", 
-    "🎯 Gap Analysis", 
-    "📅 30-Day Roadmap", 
-    "💻 Portfolio Project", 
+    "💡 Overview",
+    "🛡️ Safety Review",
+    "🎯 Gap Analysis",
+    "📅 30-Day Roadmap",
+    "💻 Portfolio Project",
     "💬 Mock Interview"
 ])
 
@@ -196,130 +271,273 @@ with tab_overview:
             "👉 **To begin**: Adjust your target role and skills in the sidebar, and click **Launch Multi-Agent Coaching**."
         )
         
-        # Display mock process logs
-        if evaluate_btn:
-            st.success("🎉 Multi-agent analysis triggered! Showing starter results below:")
-            with st.spinner("Agents processing profile..."):
-                status_box = st.empty()
-                status_box.markdown("*[Coordinator]* Routing profile to `ProfileAnalyzerAgent`...")
-                # Mock steps
-                import time
-                time.sleep(0.3)
-                status_box.markdown("*[SafetyAgent]* Checking resume integrity and toxicity... **Pass**.")
-                time.sleep(0.3)
-                status_box.markdown("*[SkillGapAgent]* Comparing skills to target role requirements... Done.")
-                time.sleep(0.3)
-                status_box.markdown("*[Coordinator]* Creating personalized 30-day preparation schedule... Complete.")
+        report = st.session_state.report
+        if report:
+            trace_list = report.get("agent_trace", []) or report.get("execution_trace", [])
+            if trace_list:
+                st.markdown("### 🤖 Multi-Agent Execution Trace")
+                for trace in trace_list:
+                    if isinstance(trace, dict):
+                        agent_name = trace.get("agent") or trace.get("name") or "Agent"
+                        action_desc = trace.get("action") or trace.get("summary") or ""
+                        st.info(f"**{agent_name}:** {action_desc}")
+                    else:
+                        st.info(str(trace))
     
     with col2:
-        st.markdown("### Active Agents")
+        st.markdown("### Cooperative Agents")
         st.markdown("""
         <div class="agent-card">
             <h5 style="margin:0 0 0.5rem 0; color:#818cf8;">👤 Profile Analyzer</h5>
-            <p style="font-size:0.85rem; margin:0; color:#cbd5e1;">Parses student profiles and scores baseline readiness.</p>
+            <p style="font-size:0.85rem; margin:0; color:#cbd5e1;">Parses student profiles and extracts education, branch, and skills.</p>
+        </div>
+        <div class="agent-card">
+            <h5 style="margin:0 0 0.5rem 0; color:#818cf8;">🛡️ Safety Agent</h5>
+            <p style="font-size:0.85rem; margin:0; color:#cbd5e1;">Scans for credential integrity, secrets exposure, and PII leaks.</p>
         </div>
         <div class="agent-card">
             <h5 style="margin:0 0 0.5rem 0; color:#818cf8;">🎯 Skill Gap & Matches</h5>
-            <p style="font-size:0.85rem; margin:0; color:#cbd5e1;">Evaluates core weaknesses and match rates.</p>
+            <p style="font-size:0.85rem; margin:0; color:#cbd5e1;">Evaluates core weaknesses and ranks compatibility with roles.</p>
         </div>
         <div class="agent-card">
-            <h5 style="margin:0 0 0.5rem 0; color:#818cf8;">📅 Roadmap & Portfolio Coach</h5>
-            <p style="font-size:0.85rem; margin:0; color:#cbd5e1;">Generates day-by-day learning tasks and GitHub assets.</p>
+            <h5 style="margin:0 0 0.5rem 0; color:#818cf8;">📅 Roadmap & Project Coach</h5>
+            <p style="font-size:0.85rem; margin:0; color:#cbd5e1;">Generates weekly goals, daily study hours, and repository README.md.</p>
         </div>
         """, unsafe_allow_html=True)
 
 with tab_profile:
-    st.markdown("### Profile Analysis & Honesty Check")
-    st.markdown("The profile analysis agent inspects your skills, and the safety agent checks for resume honesty.")
-    col_p1, col_p2 = st.columns(2)
-    with col_p1:
-        st.subheader("Student Details")
-        st.write(f"**Name:** {student_name}")
-        st.write(f"**Target Role:** {target_role}")
-        st.write(f"**Indicated Skills:** {skills_input}")
-    with col_p2:
-        st.subheader("Safety & Honesty Diagnostics")
-        st.markdown("""
-        * **Profanity & Content Filter:** `Safe`
-        * **Claims Validation Check:** `Verified`
-        * **Resume Integrity Index:** `92/100` (High integrity profile representation)
-        """)
+    st.markdown("### 🛡️ Safety Review & Honesty Check")
+    st.markdown(
+        "The Safety Agent audits your profile for honesty, secret leaks, PII, "
+        "and fake claim requests before any coaching begins."
+    )
+
+    if st.session_state.report:
+        report = st.session_state.report
+        profile = report.get("profile_summary") or {}
+        safety  = report.get("safety_review") or {}
+
+        if not profile:
+            st.warning("Profile summary is not available. Re-run the coaching pipeline.")
+        else:
+            # ── Row 1: Student snapshot ──────────────────────────────────────
+            st.markdown("#### 👤 Student Profile Snapshot")
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
+                st.write(f"**Name:** {profile.get('name', 'N/A')}")
+                st.write(f"**Target Role:** {profile.get('target_role', 'N/A')}")
+                skills_list = profile.get('current_skills') or []
+                st.write(f"**Extracted Skills:** {', '.join(skills_list) if skills_list else 'N/A'}")
+            with col_p2:
+                st.write(f"**Education:** {profile.get('education', 'N/A')}")
+                st.write(f"**Branch/Major:** {profile.get('branch', 'N/A')}")
+
+            st.markdown("---")
+
+            # ── Row 2: Safety diagnostics ────────────────────────────────────
+            st.markdown("#### 🔍 Safety Diagnostics")
+            passed        = safety.get('passed_safety', True)
+            honesty_score = safety.get('honesty_score', 100)
+            flags         = safety.get('safety_flags') or []
+            warnings_list = safety.get('warnings') or []
+            alternatives  = safety.get('honest_alternatives') or []
+
+            col_s1, col_s2, col_s3 = st.columns(3)
+            with col_s1:
+                icon = "✅" if passed else "❌"
+                st.metric("Overall Safety", f"{icon} {'Passed' if passed else 'Failed'}")
+            with col_s2:
+                st.metric("Honesty Score", f"{honesty_score}/100")
+            with col_s3:
+                api_clean = "API_KEY_LEAK" not in flags
+                st.metric("Secret Check", "✅ Clean" if api_clean else "⚠️ Secrets Found")
+
+            # Active flags
+            if flags:
+                st.markdown("**🚩 Active Safety Flags:**")
+                flag_labels = {
+                    "FAKE_CLAIMS_REQUEST": "🚫 Fake Claims Request",
+                    "SUSPICIOUS_CLAIMS":   "⚠️ Suspicious Experience Claims",
+                    "API_KEY_LEAK":        "🔑 API Key / Secret Detected",
+                    "PROFANITY_DETECTED":  "🤬 Profanity Detected",
+                }
+                for f in flags:
+                    label = flag_labels.get(f, f)
+                    st.error(label)
+
+            # Warnings
+            if warnings_list:
+                st.markdown("**⚠️ Warnings:**")
+                for w in warnings_list:
+                    st.warning(w)
+
+            st.markdown("---")
+
+            # ── Row 3: Redacted safe profile ─────────────────────────────────
+            st.markdown("#### 🔏 Sensitive Data Redaction Result")
+            safe_text = safety.get('safe_profile_text', '')
+            if safe_text:
+                st.info(
+                    "The profile below has had emails, phone numbers, and secrets automatically "
+                    "replaced with `[REDACTED_EMAIL]`, `[REDACTED_PHONE]`, and `[REDACTED_SECRET]`."
+                )
+                st.code(safe_text, language="text")
+            else:
+                st.write("No profile text to display.")
+
+            st.markdown("---")
+
+            # ── Row 4: Improvement suggestions ───────────────────────────────
+            st.markdown("#### 💡 Safe Resume Improvement Suggestions")
+            if alternatives:
+                for alt in alternatives:
+                    st.success(alt)
+            else:
+                st.success(
+                    "Your profile looks honest and clean. "
+                    "Focus on quantifying real achievements (e.g., 'built X using Y, resulting in Z')."
+                )
+
+            # ── Row 5: Privacy reminder ───────────────────────────────────────
+            st.markdown("---")
+            st.markdown(
+                "<div style='background:rgba(239,68,68,0.08);border:1px solid "
+                "rgba(239,68,68,0.3);border-radius:8px;padding:0.75rem 1rem;font-size:0.85rem;"
+                "color:#fca5a5;'>"
+                "🔒 <strong>Privacy Reminder</strong> — Resume/profile text is processed "
+                "<em>only for this session</em> and is never stored permanently. "
+                "Do not paste passwords, API keys, or highly sensitive personal data."
+                "</div>",
+                unsafe_allow_html=True
+            )
+    else:
+        st.info("Run the agent dashboard from the sidebar to populate the safety review.")
 
 with tab_skills:
     st.markdown("### Core Gap Analysis")
     st.markdown("Comparing your skills with live requirements for target role:")
     
-    st.markdown(f"#### Target: **{target_role}**")
-    st.progress(0.65)
-    st.markdown("*Overall Match Score: **65%** (Moderate Fit)*")
-    
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
-        st.success("##### Matching Skills")
-        st.write("- Python scripting basics")
-        st.write("- Fundamental Git workflow (commit/push)")
-        st.write("- Basic HTML/CSS styling")
-    with col_s2:
-        st.error("##### Identified Skill Gaps")
-        st.write("- Advanced FastAPI / Backend framework usage")
-        st.write("- Containerization & Docker setup")
-        st.write("- Unit Testing (pytest) and CI/CD pipelines")
+    if st.session_state.report:
+        report = st.session_state.report
+        gap = report.get("skill_gap_analysis") or {}
+        matches = report.get("internship_matches") or []
+        profile = report.get("profile_summary") or {}
+        readiness = report.get("readiness_score", 0)
+
+        target_role_display = profile.get('target_role', 'N/A')
+        st.markdown(f"#### Target: **{target_role_display}**")
+        st.progress(min(max(readiness, 0), 100) / 100.0)
+        st.markdown(f"*Overall Readiness Score: **{readiness}%***")
+
+        if not gap:
+            st.warning("Skill gap analysis data is not available. Re-run the coaching pipeline.")
+        else:
+            col_s1, col_s2 = st.columns(2)
+            with col_s1:
+                st.success("##### Matching Skills")
+                matching = gap.get("matching_skills") or []
+                for skill in matching:
+                    st.write(f"- {skill}")
+                if not matching:
+                    st.write("No matching skills found for this role.")
+            with col_s2:
+                st.error("##### Identified Skill Gaps")
+                ranked = gap.get("ranked_gaps") or []
+                for skill_info in ranked:
+                    st.write(f"- **{skill_info.get('skill', '')}** ({skill_info.get('priority', '')} Priority)")
+                if not ranked:
+                    st.write("No gaps identified. You match all required skills!")
+
+            st.markdown("##### Skill Gap Explanation")
+            st.markdown(gap.get("explanation") or "No explanation available.")
+
+        if matches:
+            st.markdown("---")
+            st.markdown("### Database Role Matches")
+            for match in matches:
+                role_name = match.get('role_name', 'Unknown Role')
+                fit_level = match.get('fit_level', 'N/A')
+                score = match.get('match_score', 0.0)
+                st.markdown(f"**{role_name}** - *{fit_level} (Score: {score:.1f}%)*")
+                st.write(match.get("explanation", ""))
+    else:
+        st.info("Run the agent dashboard from the sidebar to populate gap analysis.")
 
 with tab_roadmap:
     st.markdown("### 30-Day Preparation Roadmap")
     st.markdown("A step-by-step roadmap to close the skill gap before your interviews.")
     
-    st.markdown("""
-    #### 📅 Phase 1: Foundations & API Development (Days 1-10)
-    * **Day 1-4:** Deep dive into asynchronous Python and writing clean classes.
-    * **Day 5-7:** Building REST APIs using FastAPI, query validation, and routing.
-    * **Day 8-10:** Connecting to local SQLite/PostgreSQL databases using SQLModel.
-    
-    #### 📅 Phase 2: Testing & Containerization (Days 11-20)
-    * **Day 11-15:** Writing comprehensive unit tests using `pytest` and mock configurations.
-    * **Day 16-20:** Creating standard Dockerfiles and multi-stage container builds.
-    
-    #### 📅 Phase 3: Portfolio Polish & Application (Days 21-30)
-    * **Day 21-25:** Packaging your project, generating a high-quality README, and push to GitHub.
-    * **Day 26-30:** Simulated mock interviews focusing on system design and APIs.
-    """)
+    if st.session_state.report:
+        report = st.session_state.report
+        roadmap = report.get("roadmap_30_days") or {}
+        markdown_content = roadmap.get("markdown") if isinstance(roadmap, dict) else str(roadmap)
+        if markdown_content:
+            st.markdown(markdown_content)
+        else:
+            st.warning("Roadmap data is not available. Re-run the coaching pipeline.")
+    else:
+        st.info("Run the agent dashboard from the sidebar to generate your roadmap.")
 
 with tab_portfolio:
     st.markdown("### Portfolio Project Recommender & README Creator")
     st.markdown("High-impact projects that showcase missing skills on your resume.")
     
-    st.markdown("#### Recommended Project: **Serverless Task Scheduler API**")
-    st.markdown("""
-    * **Objective:** Design a containerized FastAPI application representing an API scheduler.
-    * **Why it fits:** Directly targets gaps in APIs, Docker, and Pytest coverage.
-    * **Complexity:** Intermediate/Advanced.
-    """)
-    
-    st.markdown("---")
-    st.markdown("#### Generated Portfolio README (GitHub Ready)")
-    st.code("""
-# TaskScheduler-API
+    if st.session_state.report:
+        report = st.session_state.report
+        proj = report.get("portfolio_project") or {}
 
-A high-performance FastAPI scheduler designed to queue background worker tasks.
+        if not proj:
+            st.warning("Portfolio project data is not available. Re-run the coaching pipeline.")
+        else:
+            title = proj.get('title') or proj.get('project_name', 'N/A')
+            st.markdown(f"#### Recommended Project: **{title}**")
+            st.markdown(f"**Problem Statement:** {proj.get('problem', 'N/A')}")
+            st.markdown("**Core Features:**")
+            for feature in (proj.get("features") or []):
+                st.write(f"- {feature}")
+            tech_list = proj.get('tech_stack') or []
+            st.write(f"**Tech Stack:** {', '.join(tech_list) if tech_list else 'N/A'}")
+            st.write(f"**Dataset Idea:** {proj.get('dataset_idea', 'N/A')}")
+            folder = proj.get("folder_structure")
+            if folder:
+                st.write("**Folder Structure:**")
+                st.code(folder)
+            st.write(f"**Demo Plan:** {proj.get('demo_plan', 'N/A')}")
 
-## Tech Stack
-- FastAPI, Pydantic (v2)
-- Docker
-- SQLite
-- Pytest (85%+ coverage)
-
-## Setup
-`docker build -t task-scheduler-api .`
-    """, language="markdown")
+        st.markdown("---")
+        st.markdown("#### Generated Portfolio README (GitHub Ready)")
+        readme = report.get("generated_readme") or "README not generated yet."
+        st.code(readme, language="markdown")
+    else:
+        st.info("Run the agent dashboard from the sidebar to recommend a project.")
 
 with tab_interview:
     st.markdown("### Mock Interview Engine")
     st.markdown("Sample interview questions derived from your resume gaps.")
     
-    st.markdown("#### Question 1 (Backend Engineering Focus)")
-    st.info("How does asynchronous concurrency differ from threading in FastAPI, and when would you use background tasks?")
-    st.text_area("Your response:", placeholder="Type your answer here...")
-    
-    st.markdown("#### Question 2 (Testing Focus)")
-    st.info("Explain how you mock external API dependencies using pytest-mock, and what the benefits are.")
-    st.text_area("Your response:", placeholder="Type your answer here...", key="q2")
+    if st.session_state.report:
+        report = st.session_state.report
+        questions = report.get("interview_questions") or []
+        eval_sum = report.get("evaluation_summary") or {}
+
+        if not questions:
+            st.warning("Interview questions are not available. Re-run the coaching pipeline.")
+        else:
+            for i, q in enumerate(questions):
+                category = q.get('category', 'General') if isinstance(q, dict) else 'General'
+                question_text = q.get('question', str(q)) if isinstance(q, dict) else str(q)
+                st.markdown(f"#### Question {i+1} ({category} Focus)")
+                st.info(question_text)
+                st.text_area("Your response:", placeholder="Type your answer here...", key=f"ans_{i}")
+
+        st.markdown("---")
+        st.subheader("Final Report Quality Review Check")
+        if eval_sum:
+            overall = eval_sum.get('overall_score', 'N/A')
+            st.metric(label="Overall Quality Score", value=f"{overall}/100")
+            st.write("**Evaluation Feedback:**")
+            st.markdown(eval_sum.get("feedback") or "No feedback available.")
+        else:
+            st.warning("Evaluation summary is not available. Re-run the coaching pipeline.")
+    else:
+        st.info("Run the agent dashboard from the sidebar to see mock questions.")
