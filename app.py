@@ -405,9 +405,67 @@ with tab_profile:
                 st.metric("Overall Safety", f"{icon} {'Passed' if passed else 'Failed'}")
             with col_s2:
                 st.metric("Honesty Score", f"{honesty_score}/100")
+                st.caption(
+                    "Checks for fake internship claims, fake certificates, fake skills, "
+                    "lie-in-resume requests, and unrealistic experience claims."
+                )
             with col_s3:
                 api_clean = "API_KEY_LEAK" not in flags
                 st.metric("Secret Check", "✅ Clean" if api_clean else "⚠️ Secrets Found")
+                st.caption(
+                    "Scans for API keys, passwords, GOOGLE_API_KEY, sk- tokens, "
+                    "long secret-like tokens, emails, and phone numbers."
+                )
+
+            # ── Per-check status breakdown ───────────────────────────────────
+            st.markdown("##### 🔎 Individual Check Results")
+
+            fake_claim_ok  = "FAKE_CLAIMS_REQUEST" not in flags
+            cert_claim_ok  = "FAKE_CLAIMS_REQUEST" not in flags   # same flag covers certs
+            skill_claim_ok = "FAKE_CLAIMS_REQUEST" not in flags   # same flag covers skill lies
+            suspicious_ok  = "SUSPICIOUS_CLAIMS"   not in flags
+            api_key_ok     = "API_KEY_LEAK"         not in flags
+            pii_ok         = safety.get("safe_profile_text") is not None  # redaction ran
+
+            def _check_row(label: str, passed_check: bool, detail: str) -> None:
+                badge  = "✅ Passed" if passed_check else "❌ Failed"
+                color  = "#10b981"  if passed_check else "#ef4444"
+                st.markdown(
+                    f"<div style='display:flex;align-items:center;gap:10px;"
+                    f"background:rgba(255,255,255,0.04);border-radius:8px;"
+                    f"padding:0.45rem 0.75rem;margin-bottom:6px;'>"
+                    f"<span style='font-weight:600;min-width:220px;color:#e2e8f0;'>{label}</span>"
+                    f"<span style='color:{color};font-weight:600;min-width:100px;'>{badge}</span>"
+                    f"<span style='font-size:0.82rem;color:#94a3b8;'>{detail}</span>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+
+            _check_row(
+                "🚫 Fake Claim Check",
+                fake_claim_ok,
+                "Detects 'fake internship', 'fake experience', 'make up a project' patterns.",
+            )
+            _check_row(
+                "📜 Certificate Claim Check",
+                cert_claim_ok,
+                "Detects 'fake certificate', 'add a fake credential' patterns.",
+            )
+            _check_row(
+                "🧠 Skill Claim Check",
+                skill_claim_ok,
+                "Detects 'say I know X even though I don't' and similar skill lies.",
+            )
+            _check_row(
+                "🔑 API Key / Password Check",
+                api_key_ok,
+                "Scans for GOOGLE_API_KEY, sk- tokens, AWS keys, long entropy strings.",
+            )
+            _check_row(
+                "🔏 PII Redaction Check",
+                pii_ok,
+                "Masks emails, phone numbers, and secrets before any LLM processing.",
+            )
 
             # Active flags
             if flags:
