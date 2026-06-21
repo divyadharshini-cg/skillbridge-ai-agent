@@ -25,6 +25,23 @@ A single linear prompt to an LLM cannot solve this complex task. Bridging the re
 * **Maintain Pipeline Continuity:** A `Coordinator Agent` manages shared state, ensuring that the roadmap and mock interviews are directly informed by the specific gaps identified during profile analysis.
 
 ---
+## Vision Behind SkillBridge AI
+
+The vision behind SkillBridge AI is to help college students move from confusion to internship readiness with clear, personalized, and honest guidance. Many students know basic programming or machine learning concepts, but they struggle to understand which industry skills they are missing, what type of portfolio project they should build, how to document their GitHub work, and how to prepare for interviews. SkillBridge AI was built to solve this “career cold-start” problem by acting like a structured internship readiness coach.
+
+Instead of giving generic career advice, SkillBridge AI analyzes a student’s current profile, compares it with target internship role requirements, calculates an Internship Readiness Score, identifies skill gaps, generates a 30-day learning roadmap, recommends a portfolio project, creates a GitHub README, prepares mock interview questions, and checks whether resume suggestions are honest and safe. The goal is not just to produce text, but to give students a practical action plan they can follow.
+
+## Technical Decisions That Bring It to Life
+
+The main technical decision was to build SkillBridge AI as a multi-agent system instead of a single chatbot. A single prompt cannot reliably handle profile analysis, skill matching, roadmap planning, project design, interview preparation, and safety checks at the same time. So the system uses specialized agents, each with a clear responsibility: a Safety Agent checks privacy and honesty, a Profile Analyzer Agent extracts student details, a Skill Gap Agent compares skills with role requirements, a Roadmap Agent creates a 30-day plan, a Portfolio Project Agent designs a project, a README Agent generates documentation, an Interview Agent prepares questions, and an Evaluation Agent reviews the final output. A Coordinator Agent manages the full workflow and combines all outputs into one structured report.
+
+To make the system reliable and judge-friendly, I used an MCP-style tool layer that separates reasoning from deterministic actions. Core functions such as role lookup, skill matching, readiness scoring, roadmap generation, safety checking, and report exporting are implemented as reusable Python tools. This makes the project more testable, explainable, and reproducible.
+
+The app is built with Streamlit so judges and users can interact with it easily through a clean dashboard. Gemini is used only as an optional enhancement layer; the project still works in safe fallback mode without an API key. This design ensures that the app can be tested locally, shared publicly, and run without exposing secrets. Security was also a major design decision: `.env` is ignored, `.env.example` contains only placeholders, fake resume claims are blocked, personal data is redacted, and exported reports are scrubbed before download.
+
+These decisions make SkillBridge AI more than a chatbot. It is a practical, deployable, multi-agent career preparation system that combines agent orchestration, deterministic tools, safety controls, and a user-friendly interface to help students become internship-ready.
+
+---
 
 ## 🌐 Solution & Multi-Agent Architecture
 
