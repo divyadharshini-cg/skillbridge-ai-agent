@@ -267,23 +267,80 @@ with tab_overview:
             "our agents cooperate to tailor a 30-day prep guide, recommend realistic portfolio project milestones, "
             "write clean README templates, and test you with mock questions."
         )
-        st.info(
-            "👉 **To begin**: Adjust your target role and skills in the sidebar, and click **Launch Multi-Agent Coaching**."
-        )
-        
+
         report = st.session_state.report
         if report:
+            # ── Completed Analysis Summary ────────────────────────────────────
+            st.markdown("### ✅ Analysis Complete — Your Readiness Summary")
+
+            # Readiness score & target role
+            readiness  = report.get("readiness_score", 0)
+            profile    = report.get("profile_summary") or {}
+            role_disp  = profile.get("target_role") or report.get("target_role", "N/A")
+
+            m1, m2 = st.columns(2)
+            with m1:
+                st.metric("🎯 Internship Readiness Score", f"{readiness}%")
+            with m2:
+                st.metric("💼 Target Role", role_disp)
+
+            st.progress(min(max(int(readiness), 0), 100) / 100.0)
+
+            # Top 3 missing skills
+            gap    = report.get("skill_gap_analysis") or {}
+            ranked = gap.get("ranked_gaps") or []
+            top3   = ranked[:3]
+            st.markdown("#### 🔍 Top 3 Missing Skills")
+            if top3:
+                for skill_info in top3:
+                    skill    = skill_info.get("skill", "Unknown") if isinstance(skill_info, dict) else str(skill_info)
+                    priority = skill_info.get("priority", "")     if isinstance(skill_info, dict) else ""
+                    badge    = f" *({priority} Priority)*" if priority else ""
+                    st.markdown(f"- **{skill}**{badge}")
+            else:
+                st.markdown("- No skill gaps found — you're well-matched for this role! 🎉")
+
+            # Recommended portfolio project
+            proj       = report.get("portfolio_project") or {}
+            proj_title = proj.get("title") or proj.get("project_name", "N/A")
+            st.markdown("#### 💻 Recommended Portfolio Project")
+            st.success(f"**{proj_title}**")
+
+            # Next best action
+            st.markdown("#### ⚡ Next Best Action")
+            roadmap     = report.get("roadmap_30_days") or {}
+            eval_sum    = report.get("evaluation_summary") or {}
+            next_action = eval_sum.get("next_action") or eval_sum.get("next_step") or ""
+            if not next_action and isinstance(roadmap, dict):
+                weeks = roadmap.get("weeks") or []
+                if weeks:
+                    first_week = weeks[0] if isinstance(weeks[0], dict) else {}
+                    next_action = first_week.get("goal") or first_week.get("focus") or ""
+            if not next_action:
+                next_action = (
+                    f"Start closing your top skill gap: **{top3[0].get('skill', 'the missing skill') if top3 else 'key skills'}**. "
+                    "Open the 📅 30-Day Roadmap tab for your personalised study plan."
+                )
+            st.info(f"👉 {next_action}")
+
+            st.markdown("---")
+
+            # ── Multi-Agent Execution Trace ───────────────────────────────────
             trace_list = report.get("agent_trace", []) or report.get("execution_trace", [])
             if trace_list:
                 st.markdown("### 🤖 Multi-Agent Execution Trace")
                 for trace in trace_list:
                     if isinstance(trace, dict):
-                        agent_name = trace.get("agent") or trace.get("name") or "Agent"
+                        agent_name  = trace.get("agent") or trace.get("name") or "Agent"
                         action_desc = trace.get("action") or trace.get("summary") or ""
                         st.info(f"**{agent_name}:** {action_desc}")
                     else:
                         st.info(str(trace))
-    
+        else:
+            st.info(
+                "👉 **To begin**: Adjust your target role and skills in the sidebar, and click **Launch Multi-Agent Coaching**."
+            )
+
     with col2:
         st.markdown("### Cooperative Agents")
         st.markdown("""
