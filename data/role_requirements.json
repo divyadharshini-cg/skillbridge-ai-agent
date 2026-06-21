@@ -1,0 +1,212 @@
+{
+  "AI/ML Intern": {
+    "required_skills": [
+      "Python",
+      "NumPy",
+      "Pandas",
+      "Scikit-Learn",
+      "Linear Algebra",
+      "Git"
+    ],
+    "optional_skills": [
+      "PyTorch",
+      "TensorFlow",
+      "Matplotlib",
+      "SQL",
+      "Docker"
+    ],
+    "recommended_projects": [
+      {
+        "name": "Customer Churn Prediction Pipeline",
+        "description": "Construct a complete machine learning workflow analyzing user activity data, handling class imbalance with SMOTE, and deploying a trained Random Forest model as a REST API.",
+        "tech_stack": ["Python", "Pandas", "Scikit-Learn", "FastAPI", "Docker"]
+      },
+      {
+        "name": "Image Classification Engine",
+        "description": "Develop and train a Convolutional Neural Network using PyTorch to classify objects, applying data augmentation techniques to boost performance.",
+        "tech_stack": ["Python", "PyTorch", "NumPy", "Jupyter"]
+      }
+    ],
+    "interview_topics": [
+      "Bias-Variance Tradeoff",
+      "Overfitting and Regularization Techniques",
+      "Evaluation Metrics (Precision, Recall, F1-Score, ROC-AUC)",
+      "Supervised vs Unsupervised Algorithms",
+      "Gradient Descent Mechanics"
+    ],
+    "tools_to_learn": [
+      "Jupyter Notebooks",
+      "VS Code",
+      "Weights & Biases",
+      "Git/GitHub"
+    ]
+  },
+  "Data Analyst Intern": {
+    "required_skills": [
+      "SQL",
+      "Python",
+      "Pandas",
+      "Data Visualization",
+      "Excel"
+    ],
+    "optional_skills": [
+      "Tableau",
+      "PowerBI",
+      "NumPy",
+      "Statistics",
+      "Git"
+    ],
+    "recommended_projects": [
+      {
+        "name": "E-Commerce Sales Performance Analytics Dashboard",
+        "description": "Ingest and model raw transaction records into PostgreSQL, write window function queries to pull year-over-year cohort metrics, and present results via a Tableau dashboard.",
+        "tech_stack": ["SQL", "PostgreSQL", "Pandas", "Tableau"]
+      },
+      {
+        "name": "A/B Testing Impact Evaluation",
+        "description": "Analyze digital experiment conversion rates using python statistical hypothesis tests (t-test, chi-square) to guide design iterations.",
+        "tech_stack": ["Python", "Pandas", "Statsmodels", "Seaborn"]
+      }
+    ],
+    "interview_topics": [
+      "SQL Joins and Window Functions",
+      "A/B Testing and Hypothesis Testing",
+      "Data Normalization and Dimensional Modeling",
+      "Handling Missing Values and Data Outliers",
+      "Defining Actionable Product KPIs"
+    ],
+    "tools_to_learn": [
+      "PostgreSQL",
+      "Tableau Desktop",
+      "Jupyter Notebooks",
+      "Git/GitHub",
+      "Microsoft Excel"
+    ]
+  },
+  "Python Developer Intern": {
+    "required_skills": [
+      "Python",
+      "Object-Oriented Programming (OOP)",
+      "Git",
+      "SQL",
+      "REST APIs"
+    ],
+    "optional_skills": [
+      "FastAPI",
+      "Flask",
+      "pytest",
+      "Docker",
+      "Data Structures"
+    ],
+    "recommended_projects": [
+      {
+        "name": "Asynchronous Task Queue API",
+        "description": "Build a task execution framework with FastAPI backend nodes queueing background processes using celery and redis databases.",
+        "tech_stack": ["Python", "FastAPI", "Redis", "Celery", "Docker"]
+      },
+      {
+        "name": "Web Scraping and Cleaning System",
+        "description": "Construct an automated crawler script using BeautifulSoup to parse technical articles, normalize output files, and upload structured data into SQLite.",
+        "tech_stack": ["Python", "BeautifulSoup", "SQLite", "Git"]
+      }
+    ],
+    "interview_topics": [
+      "Python Memory Management and Garbage Collection",
+      "Multithreading vs Multiprocessing in Python",
+      "RESTful API Design Standards",
+      "Database Optimization and Indexing",
+      "Time and Space Complexity of Algorithms"
+    ],
+    "tools_to_learn": [
+      "VS Code",
+      "Poetry/pip",
+      "Docker",
+      "SQLiteStudio",
+      "Git/GitHub"
+    ]
+  },
+  "Web Developer Intern": {
+    "required_skills": [
+      "HTML5",
+      "CSS3",
+      "JavaScript",
+      "React",
+      "Git"
+    ],
+    "optional_skills": [
+      "TypeScript",
+      "TailwindCSS",
+      "Node.js",
+      "Express",
+      "Webpack"
+    ],
+    "recommended_projects": [
+      {
+        "name": "Collaborative Kanban Board",
+        "description": "Design an interactive, drag-and-drop workflow tracking board with reactive states using React and styled with TailwindCSS, connecting to an Express backend.",
+        "tech_stack": ["React.js", "TailwindCSS", "Node.js", "Express", "MongoDB"]
+      },
+      {
+        "name": "Personal Developer Portfolio Page",
+        "description": "Assemble a lightweight, high-performance responsive site containing interactive projects grids, CSS micro-animations, and form validation capabilities.",
+        "tech_stack": ["HTML5", "CSS3", "JavaScript", "GitHub Pages"]
+      }
+    ],
+    "interview_topics": [
+      "CSS Layouts: Flexbox vs CSS Grid",
+      "JavaScript Promises, Async/Await, and Event Loop",
+      "React Hooks Lifecycle and State Management",
+      "Virtual DOM Mechanics",
+      "Web Performance Optimization (Lazy Loading, Bundling)"
+    ],
+    "tools_to_learn": [
+      "VS Code",
+      "Chrome DevTools",
+      "NPM/Yarn",
+      "Figma",
+      "Git/GitHub"
+    ]
+  },
+  "GenAI Intern": {
+    "required_skills": [
+      "Python",
+      "LLM APIs",
+      "Prompt Engineering",
+      "LangChain",
+      "Git"
+    ],
+    "optional_skills": [
+      "LlamaIndex",
+      "Vector Databases",
+      "RAG",
+      "Streamlit",
+      "HuggingFace"
+    ],
+    "recommended_projects": [
+      {
+        "name": "RAG-Based Documentation Q&A Bot",
+        "description": "Build an intelligent assistant using LangChain and a vector database to search, index, and query custom PDF files, minimizing hallucinations.",
+        "tech_stack": ["Python", "LangChain", "ChromaDB", "Gemini API", "Streamlit"]
+      },
+      {
+        "name": "Multi-Agent Research Assistant Workspace",
+        "description": "Design cooperating agents that automatically partition complex topics, research Google Search, compile drafts, and refine summaries.",
+        "tech_stack": ["Python", "LangGraph", "google-genai", "Git"]
+      }
+    ],
+    "interview_topics": [
+      "Retrieval-Augmented Generation (RAG) Architecture",
+      "Vector Embeddings and Distance Similarity Metrics (Cosine, L2)",
+      "Prompting Strategies (Few-Shot, Chain-of-Thought, ReAct)",
+      "Managing LLM Hallucinations and Security Injection Guards",
+      "Semantic Chunking and Indexing Strategies"
+    ],
+    "tools_to_learn": [
+      "LangChain/LangGraph",
+      "ChromaDB/Pinecone",
+      "HuggingFace Spaces",
+      "Streamlit",
+      "Git/GitHub"
+    ]
+  }
+}
