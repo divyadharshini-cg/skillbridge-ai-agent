@@ -246,21 +246,7 @@ pytest -v
 
 ---
 
-## 📸 Screenshots Placeholder
-*Once deployed, insert screenshots of your dashboard tabs here:*
-* *Overview Dashboard:* `![Overview Screenshot](docs/images/overview.png)`
-* *Safety Diagnostics:* `![Safety Screenshot](docs/images/safety.png)`
-* *Gap Mapping:* `![Gap Analysis Screenshot](docs/images/gaps.png)`
-* *Roadmap Plan:* `![Roadmap Screenshot](docs/images/roadmap.png)`
 
----
-
-## 🏆 Kaggle Submission Notes
-* **Project Name:** SkillBridge AI
-* **Intensive Vibe Coding Track:** Agentic UI & Multi-Agent Choreography.
-* **Key Innovation:** Bringing secure PII masking and fake claim prevention to student career guidance, backed by an MCP-compliant registry layer.
-
----
 
 ## 🔮 Future Improvements
 * **Live Job Postings Integration:** Connecting the Skill Gap Agent to external APIs (e.g., LinkedIn or Indeed) to parse live internship descriptions.
