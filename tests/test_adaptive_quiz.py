@@ -1,4 +1,6 @@
+import json
 import pytest
+import tools.quiz_tools as quiz_tools
 from tools.quiz_tools import (
     load_question_bank,
     select_adaptive_questions,
@@ -192,6 +194,70 @@ class TestTextEvaluation:
         # Default score for empty rubric with brief answer
         assert 0 <= result.get("score") <= 10
         assert "points_covered" in result
+
+    def test_evaluate_text_semantic_precision_recall(self, monkeypatch):
+        """Should score semantic precision/recall answers higher even without exact rubric text."""
+        monkeypatch.setattr(quiz_tools, "is_llm_available", lambda: False)
+        result = evaluate_text_answer(
+            user_answer=(
+                "Precision means the model's positive predictions are correct, with fewer false positives. "
+                "Recall means finding the actual positives and avoiding false negatives."
+            ),
+            rubric_points=["Explain precision and recall"]
+        )
+        assert result.get("score") >= 7
+        assert result.get("scoring_method") == "Rubric fallback"
+
+    def test_evaluate_text_llm_refinement(self, monkeypatch):
+        """Should use Gemini-assisted scoring when available and return enriched scoring metadata."""
+        def dummy_llm_refinement(question, expected_answer, rubric_points, user_answer, fallback_result):
+            return {
+                "score": 9,
+                "feedback": "Good coverage of the key idea. | Missing: More explicit examples would help. | Tip: Add a short use case to support the definition.",
+                "is_correct": True,
+                "what_was_good": "Good coverage of the key idea.",
+                "what_was_missing": "More explicit examples would help.",
+                "improvement_tip": "Add a short use case to support the definition.",
+                "scoring_method": "Gemini-assisted"
+            }
+
+        monkeypatch.setattr(quiz_tools, "evaluate_answer_with_llm", dummy_llm_refinement)
+
+        result = evaluate_text_answer(
+            user_answer="Precision focuses on reducing false positives while recall focuses on reducing false negatives.",
+            rubric_points=["Explain precision and recall"]
+        )
+
+        assert result.get("score") == 9
+        assert result.get("scoring_method") == "Gemini-assisted"
+        assert result.get("what_was_good") == "Good coverage of the key idea."
+        assert result.get("what_was_missing") == "More explicit examples would help."
+        assert result.get("improvement_tip") == "Add a short use case to support the definition."
+
+    def test_evaluate_text_project_based_answer(self):
+        """Should score project-based answers using project-specific concept coverage."""
+        result = evaluate_text_answer(
+            user_answer=(
+                "I led a project to improve a recommendation system by cleaning the user dataset, selecting a collaborative filtering algorithm, and measuring improved accuracy. "
+                "I also documented challenges and the final results."
+            ),
+            rubric_points=["Describe project goal", "Discuss dataset and model", "Explain challenges and results"],
+            question_type="Project-Based Question"
+        )
+        assert result.get("score") >= 7
+        assert result.get("scoring_method") == "Rubric fallback"
+        assert "Good project answer" in result.get("feedback", "")
+
+    def test_evaluate_text_hr_short_answer(self):
+        """Should provide useful feedback for HR answers and respect HR concept coverage."""
+        result = evaluate_text_answer(
+            user_answer="I am passionate about the role and want to learn quickly.",
+            rubric_points=["Express interest in the role", "Mention learning mindset"],
+            question_type="HR Question"
+        )
+        assert 0 <= result.get("score") <= 10
+        assert "learning" in result.get("feedback", "").lower()
+        assert result.get("scoring_method") == "Rubric fallback"
 
 
 class TestCodingEvaluation:

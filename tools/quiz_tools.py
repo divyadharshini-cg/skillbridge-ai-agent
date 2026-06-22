@@ -4,6 +4,8 @@ import re
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
+from llm_client import LLMClient, is_llm_available
+
 def load_question_bank() -> Dict[str, Any]:
     """
     Loads the local question bank from data/question_bank.json.
@@ -127,82 +129,217 @@ def evaluate_mcq_answer(user_answer: str, expected_answer: str) -> Dict[str, Any
         return {
             "score": 10,
             "feedback": "Correct! Well done.",
-            "is_correct": True
+            "is_correct": True,
+            "scoring_method": "MCQ exact match",
+            "what_was_good": "Selected the correct choice.",
+            "what_was_missing": "",
+            "improvement_tip": "Keep applying the same careful reading to other MCQ questions."
         }
     else:
         return {
             "score": 0,
             "feedback": f"Incorrect. The correct answer is: {expected_answer}",
-            "is_correct": False
+            "is_correct": False,
+            "scoring_method": "MCQ exact match",
+            "what_was_good": "",
+            "what_was_missing": "The selected option did not match the expected answer.",
+            "improvement_tip": "Review the definitions and eliminate clearly wrong choices first."
         }
 
 
-def evaluate_text_answer(user_answer: str, rubric_points: List[str]) -> Dict[str, Any]:
+def _normalize_answer(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def _concept_match(answer: str, patterns: List[List[str]]) -> int:
+    answer = _normalize_answer(answer)
+    matches = 0
+    for group in patterns:
+        for pattern in group:
+            if pattern in answer:
+                matches += 1
+                break
+    return matches
+
+
+def evaluate_answer_with_llm(
+    question: str,
+    expected_answer: str,
+    rubric_points: List[str],
+    user_answer: str,
+    fallback_result: Dict[str, Any]
+) -> Dict[str, Any]:
     """
-    Evaluates a text answer using rubric-based matching.
-    Uses keyword matching to determine if key points are covered.
-    Returns a score (0-10) and feedback.
-    
-    Rubric points are keywords/phrases that should be present in the answer.
+    Optionally use Gemini to refine scoring, but fallback always remains available.
     """
-    user_answer_lower = user_answer.lower()
-    points_covered = 0
-    covered_points = []
-    missing_points = []
-    
-    for rubric_point in rubric_points:
-        rubric_lower = rubric_point.lower()
-        # Check if rubric point or key words from it are in the answer
-        words = rubric_lower.split()
-        
-        # Look for key words (filter out common words)
-        key_words = [w for w in words if len(w) > 3 and w not in ["the", "that", "this", "with"]]
-        
-        # Check if most key words are present
-        if key_words:
-            matched_words = sum(1 for w in key_words if w in user_answer_lower)
-            if matched_words >= len(key_words) * 0.6:  # 60% threshold
-                points_covered += 1
-                covered_points.append(rubric_point)
-            else:
-                missing_points.append(rubric_point)
-        else:
-            # If rubric point is too short, do substring matching
-            if rubric_lower in user_answer_lower:
-                points_covered += 1
-                covered_points.append(rubric_point)
-            else:
-                missing_points.append(rubric_point)
-    
-    # Calculate score based on rubric coverage
-    if not rubric_points:
-        score = 5  # Default score if no rubric points
-    else:
-        score = int((points_covered / len(rubric_points)) * 10)
+    if not is_llm_available():
+        return fallback_result
+
+    llm_client = LLMClient()
+    prompt = (
+        "You are a technical interviewer scoring a candidate response. "
+        "Return JSON only with fields: score_out_of_10, what_was_good, what_was_missing, improvement_tip.\n"
+        f"Question: {question}\n"
+        f"Expected answer: {expected_answer}\n"
+        f"Rubric points: {rubric_points}\n"
+        f"Candidate answer: {user_answer}\n"
+        "Score the answer from 0 to 10, then list what was good, what was missing, and one improvement tip."
+    )
+    system_instruction = "You are a precise scoring assistant. Return only valid JSON."
+
+    try:
+        response = llm_client.generate(prompt, system_instruction=system_instruction).strip()
+        if not response or response.startswith("[LLM Error") or response.startswith("[MOCK RESPONSE"):
+            return fallback_result
+
+        if response.startswith("```json"):
+            response = response[8:].rstrip("`\n ")
+        import json as _json
+        parsed = _json.loads(response)
+        score = int(parsed.get("score_out_of_10", fallback_result.get("score", 0)))
         score = min(10, max(0, score))
-    
-    feedback_lines = []
-    
-    # Add answer length assessment
-    if len(user_answer.strip()) < 20:
-        feedback_lines.append("Your answer is quite brief. Consider providing more detail.")
-        score = max(0, score - 2)
-    elif len(user_answer.strip()) < 50:
-        feedback_lines.append("Good effort! Consider expanding with more specific details.")
-    
-    if covered_points:
-        feedback_lines.append(f"✓ Well covered: {', '.join(covered_points[:2])}")
-    
-    if missing_points and len(missing_points) <= 2:
-        feedback_lines.append(f"Consider addressing: {', '.join(missing_points)}")
-    
-    return {
-        "score": score,
-        "feedback": " | ".join(feedback_lines) if feedback_lines else "Review your answer and ensure it covers key concepts.",
-        "is_correct": points_covered == len(rubric_points),
-        "points_covered": len(covered_points),
-        "total_rubric_points": len(rubric_points)
+        return {
+            "score": score,
+            "feedback": f"{parsed.get('what_was_good', '').strip()} | Missing: {parsed.get('what_was_missing', '').strip()} | Tip: {parsed.get('improvement_tip', '').strip()}",
+            "is_correct": score >= 7,
+            "what_was_good": parsed.get('what_was_good', '').strip(),
+            "what_was_missing": parsed.get('what_was_missing', '').strip(),
+            "improvement_tip": parsed.get('improvement_tip', '').strip(),
+            "scoring_method": "Gemini-assisted"
+        }
+    except Exception:
+        return fallback_result
+
+
+def evaluate_text_answer(user_answer: str, rubric_points: List[str], question_type: str = "Technical") -> Dict[str, Any]:
+    """
+    Evaluates a text answer using a hybrid rubric + concept matching approach.
+    Returns a score (0-10), detailed feedback, and scoring method.
+    """
+    user_answer_clean = _normalize_answer(user_answer)
+    if not user_answer_clean:
+        return {
+            "score": 0,
+            "feedback": "No answer provided.",
+            "is_correct": False,
+            "scoring_method": "Rubric fallback",
+            "what_was_good": "",
+            "what_was_missing": "Answer was empty.",
+            "improvement_tip": "Provide a complete response that includes the requested concepts."
+        }
+
+    concept_groups = {
+        "precision_recall": [
+            ["predicted positives are correct", "correct positive predictions", "fewer false positives", "low false positives"],
+            ["actual positives found", "misses positive cases", "false negatives", "catching all positives"],
+            ["precision", "recall", "true positives", "false positives", "false negatives"]
+        ],
+        "technical": [
+            ["correct definition", "definition is", "means"],
+            ["practical meaning", "real world", "example", "interpretation"],
+            ["limitation", "tradeoff", "drawback", "cost"],
+            ["precision", "recall", "accuracy", "f1 score"]
+        ],
+        "project": [
+            ["project goal", "objective", "problem statement", "aim"],
+            ["dataset", "data set", "data"],
+            ["model", "approach", "algorithm", "architecture"],
+            ["challenge", "difficulty", "problem", "issue"],
+            ["solution", "improvement", "fix", "resolve"],
+            ["result", "outcome", "lesson", "learned"]
+        ],
+        "hr": [
+            ["genuine interest", "excited", "passionate"],
+            ["role alignment", "position", "internship", "role"],
+            ["skills", "projects", "experience", "background"],
+            ["learning mindset", "learn", "growth", "improve"],
+            ["plan", "stay updated", "keep up", "continue learning"]
+        ]
     }
+
+    def _score_rubric_dimensions(answer: str, rubric_points: List[str]) -> Dict[str, Any]:
+        score = 0
+        matched = []
+        missing = []
+        for point in rubric_points:
+            normalized_point = _normalize_answer(point)
+            if normalized_point in answer:
+                score += 1
+                matched.append(point)
+            else:
+                words = [w for w in normalized_point.split() if len(w) > 3]
+                if words and sum(1 for w in words if w in answer) >= max(1, int(len(words) * 0.5)):
+                    score += 1
+                    matched.append(point)
+                else:
+                    missing.append(point)
+        return {"matched": matched, "missing": missing, "score": score}
+
+    rubric_result = _score_rubric_dimensions(user_answer_clean, rubric_points)
+    base_score = int((rubric_result["score"] / len(rubric_points)) * 10) if rubric_points else 5
+
+    if question_type == "Project-Based Question":
+        dimension_patterns = concept_groups["project"]
+    elif question_type == "HR Question":
+        dimension_patterns = concept_groups["hr"]
+    else:
+        dimension_patterns = concept_groups["technical"]
+
+    concept_score = _concept_match(user_answer_clean, dimension_patterns)
+    concept_score = min(len(dimension_patterns), concept_score)
+    concept_score_normalized = int((concept_score / len(dimension_patterns)) * 10) if len(dimension_patterns) else 0
+
+    # Hybrid score - combine rubric matching with semantic concept coverage
+    if rubric_points:
+        score = int(round((base_score * 0.4) + (concept_score_normalized * 0.6)))
+    else:
+        score = concept_score_normalized if concept_score > 0 else 5
+    score = min(10, max(score, base_score, concept_score_normalized))
+
+    # Reward good semantic answers even if exact rubric phrase is missing
+    if concept_score >= max(2, len(dimension_patterns) // 2) and len(user_answer_clean) > 50:
+        score = max(score, 8)
+
+    feedback_parts = []
+    if rubric_result["matched"]:
+        feedback_parts.append(f"✓ Covered: {', '.join(rubric_result['matched'][:3])}")
+    if rubric_result["missing"]:
+        feedback_parts.append(f"Missing: {', '.join(rubric_result['missing'][:3])}")
+
+    if len(user_answer_clean) < 25:
+        feedback_parts.append("Your answer is too brief; include more substance.")
+    elif len(user_answer_clean) < 50:
+        feedback_parts.append("Good start; expand with concrete examples or tradeoffs.")
+    else:
+        feedback_parts.append("Your response has enough length; focus on clarity and specificity.")
+
+    if question_type == "HR Question" and score >= 7:
+        feedback_parts.append("Strong HR answer with good career and learning focus.")
+    elif question_type == "Project-Based Question" and score >= 7:
+        feedback_parts.append("Good project answer; include more measurable results if possible.")
+
+    fallback_result = {
+        "score": score,
+        "feedback": " | ".join(feedback_parts),
+        "is_correct": score >= 7,
+        "points_covered": rubric_result["score"],
+        "total_rubric_points": len(rubric_points),
+        "what_was_good": ", ".join(rubric_result["matched"][:2]),
+        "what_was_missing": ", ".join(rubric_result["missing"][:2]) if rubric_result["missing"] else "",
+        "improvement_tip": "Provide clearer examples and address missing rubric points.",
+        "scoring_method": "Rubric fallback"
+    }
+
+    # If Gemini is available, allow optional refinement
+    llm_result = evaluate_answer_with_llm(
+        question=question_type,
+        expected_answer=", ".join(rubric_points),
+        rubric_points=rubric_points,
+        user_answer=user_answer,
+        fallback_result=fallback_result
+    )
+
+    return llm_result
 
 
 def evaluate_coding_answer(
