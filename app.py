@@ -3,6 +3,7 @@ import os
 import time
 from llm_client import LLMClient, is_llm_available
 from agents.coordinator_agent import CoordinatorAgent
+from agents.adaptive_quiz_agent import AdaptiveQuizAgent
 
 # Page configuration
 st.set_page_config(
@@ -627,32 +628,239 @@ with tab_portfolio:
         st.info("Run the agent dashboard from the sidebar to recommend a project.")
 
 with tab_interview:
-    st.markdown("### Mock Interview Engine")
-    st.markdown("Sample interview questions derived from your resume gaps.")
+    st.markdown("### 🎯 Adaptive Interview & Quiz Engine")
+    st.markdown("Role-specific questions tailored to your skill gaps with personalized feedback.")
     
     if st.session_state.report:
         report = st.session_state.report
-        questions = report.get("interview_questions") or []
-        eval_sum = report.get("evaluation_summary") or {}
-
-        if not questions:
-            st.warning("Interview questions are not available. Re-run the coaching pipeline.")
+        profile = report.get("profile_summary") or {}
+        gap = report.get("skill_gap_analysis") or {}
+        
+        target_role = profile.get("target_role", "AI/ML Intern")
+        current_skills = profile.get("current_skills", [])
+        missing_skills = [s.get("skill", s) if isinstance(s, dict) else str(s) for s in gap.get("ranked_gaps", [])]
+        
+        # Initialize session state for quiz
+        if "quiz_questions" not in st.session_state:
+            st.session_state.quiz_questions = None
+        if "quiz_answers" not in st.session_state:
+            st.session_state.quiz_answers = {}
+        if "quiz_results" not in st.session_state:
+            st.session_state.quiz_results = None
+        
+        # Quiz generation section
+        st.markdown("#### ⚙️ Quiz Configuration")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            language = st.selectbox(
+                "Preferred Language:",
+                ["Python", "Java", "General"],
+                key="quiz_language"
+            )
+        
+        with col2:
+            num_questions = st.selectbox(
+                "Number of Questions:",
+                [3, 5, 7],
+                key="quiz_num_questions"
+            )
+        
+        with col3:
+            st.write("")
+            st.write("")
+            if st.button("🎲 Generate Adaptive Quiz", key="gen_quiz_btn"):
+                quiz_agent = AdaptiveQuizAgent()
+                with st.spinner("🔄 Generating personalized quiz..."):
+                    quiz_result = quiz_agent.generate_quiz(
+                        target_role=target_role,
+                        current_skills=current_skills,
+                        missing_skills=missing_skills,
+                        preferred_language=language,
+                        num_questions=num_questions
+                    )
+                    
+                    if quiz_result.get("status") == "success":
+                        st.session_state.quiz_questions = quiz_result.get("questions", [])
+                        st.session_state.quiz_answers = {}
+                        st.session_state.quiz_results = None
+                        st.success(f"✅ Generated {len(st.session_state.quiz_questions)} questions!")
+                    else:
+                        st.error(f"❌ {quiz_result.get('message', 'Failed to generate quiz')}")
+        
+        st.markdown("---")
+        
+        # Display quiz
+        if st.session_state.quiz_questions:
+            st.markdown(f"#### 📝 Quiz Questions ({len(st.session_state.quiz_questions)} total)")
+            st.info("📌 Answer all questions below and click 'Evaluate My Answers' for detailed feedback.")
+            
+            # Display each question
+            for idx, question in enumerate(st.session_state.quiz_questions, 1):
+                question_id = question.get("id", f"q_{idx}")
+                question_type = question.get("question_type", "General")
+                difficulty = question.get("difficulty", "Medium")
+                skill_tag = question.get("skill_tag", "general").replace("_", " ").title()
+                question_text = question.get("question", "")
+                
+                with st.expander(
+                    f"Q{idx}: {question_type} ({difficulty}) - {skill_tag}",
+                    expanded=(idx == 1)
+                ):
+                    st.write(question_text)
+                    
+                    # Handle MCQ
+                    if "MCQ" in question_type:
+                        options = question.get("options", [])
+                        if options:
+                            user_answer = st.radio(
+                                "Select your answer:",
+                                options=options,
+                                key=f"ans_{question_id}"
+                            )
+                            st.session_state.quiz_answers[question_id] = user_answer
+                    
+                    # Handle Coding
+                    elif "Coding" in question_type:
+                        language_hint = question.get("language", "Python")
+                        user_answer = st.text_area(
+                            f"Write your {language_hint} code here:",
+                            placeholder=f"// Your {language_hint} code...",
+                            height=200,
+                            key=f"ans_{question_id}"
+                        )
+                        if user_answer:
+                            st.session_state.quiz_answers[question_id] = user_answer
+                    
+                    # Handle text/project-based
+                    else:
+                        user_answer = st.text_area(
+                            "Your answer:",
+                            placeholder="Type your detailed answer here...",
+                            height=150,
+                            key=f"ans_{question_id}"
+                        )
+                        if user_answer:
+                            st.session_state.quiz_answers[question_id] = user_answer
+                    
+                    # Sample test cases for coding questions
+                    if "Coding" in question_type:
+                        test_cases = question.get("sample_test_cases", [])
+                        if test_cases:
+                            st.markdown("**Sample Test Cases:**")
+                            for test_idx, test in enumerate(test_cases, 1):
+                                with st.expander(f"Test Case {test_idx}", expanded=False):
+                                    st.write(f"**Input:** {test.get('input', 'N/A')}")
+                                    st.write(f"**Expected Output:** {test.get('expected_output', 'N/A')}")
+            
+            st.markdown("---")
+            
+            # Evaluate button
+            col_eval1, col_eval2 = st.columns([2, 1])
+            with col_eval1:
+                if st.button("✅ Evaluate My Answers", key="eval_quiz_btn"):
+                    quiz_agent = AdaptiveQuizAgent()
+                    with st.spinner("🔍 Evaluating your answers..."):
+                        results = quiz_agent.evaluate_quiz_answers(
+                            st.session_state.quiz_questions,
+                            st.session_state.quiz_answers
+                        )
+                        st.session_state.quiz_results = results
+                        st.success("✅ Evaluation complete!")
+            
+            with col_eval2:
+                if st.button("🔄 Clear Quiz", key="clear_quiz_btn"):
+                    st.session_state.quiz_questions = None
+                    st.session_state.quiz_answers = {}
+                    st.session_state.quiz_results = None
+                    st.rerun()
+        
+        # Display results
+        if st.session_state.quiz_results:
+            results = st.session_state.quiz_results
+            quiz_score = results.get("quiz_score", {})
+            question_results = results.get("question_results", [])
+            
+            st.markdown("---")
+            st.markdown("#### 📊 Quiz Results")
+            
+            # Score summary
+            col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+            with col_s1:
+                total_score = quiz_score.get("total_score", 0)
+                avg_score = quiz_score.get("average_score", 0)
+                st.metric("📈 Total Score", f"{total_score}/100")
+            with col_s2:
+                st.metric("⭐ Average Score", f"{avg_score:.1f}/10")
+            with col_s3:
+                performance = quiz_score.get("performance_level", "N/A")
+                st.metric("🎯 Performance", performance)
+            with col_s4:
+                num_q = quiz_score.get("num_questions", 0)
+                st.metric("📝 Questions", num_q)
+            
+            # Overall feedback
+            st.info(f"💡 {quiz_score.get('feedback', '')}")
+            
+            # Per-question results
+            st.markdown("#### 📋 Per-Question Feedback")
+            for idx, result in enumerate(question_results, 1):
+                score = result.get("score", 0)
+                is_correct = result.get("is_correct", False)
+                feedback = result.get("feedback", "")
+                difficulty = result.get("difficulty", "N/A")
+                skill_tag = result.get("skill_tag", "general").replace("_", " ").title()
+                
+                # Color code by performance
+                if score >= 8:
+                    emoji = "✅"
+                    color = "green"
+                elif score >= 6:
+                    emoji = "⚠️"
+                    color = "orange"
+                else:
+                    emoji = "❌"
+                    color = "red"
+                
+                with st.expander(
+                    f"{emoji} Q{idx}: {score}/10 - {skill_tag} ({difficulty})",
+                    expanded=False
+                ):
+                    st.write(feedback)
+                    expected = result.get("expected_answer", "")
+                    if expected and not is_correct:
+                        st.warning(f"**Expected/Reference:** {expected}")
+            
+            # Weak skills and next steps
+            weak_skills = quiz_score.get("weak_skills", [])
+            if weak_skills:
+                st.markdown("---")
+                st.markdown("#### 🔴 Areas to Improve")
+                for skill in weak_skills[:3]:
+                    st.warning(f"• **{skill.replace('_', ' ').title()}** - Focus on this skill")
+            
+            # Next steps
+            next_steps = results.get("next_steps", [])
+            if next_steps:
+                st.markdown("---")
+                st.markdown("#### ⚡ Next Steps")
+                for step in next_steps:
+                    st.write(step)
+        
         else:
-            for i, q in enumerate(questions):
+            st.info("👉 Click **Generate Adaptive Quiz** to start!")
+        
+        # Fallback to static questions
+        st.markdown("---")
+        st.markdown("#### 📚 Static Mock Interview Questions (Fallback)")
+        questions = report.get("interview_questions") or []
+        
+        if questions:
+            st.markdown("*These are static questions from your initial analysis.*")
+            for i, q in enumerate(questions, 1):
                 category = q.get('category', 'General') if isinstance(q, dict) else 'General'
                 question_text = q.get('question', str(q)) if isinstance(q, dict) else str(q)
-                st.markdown(f"#### Question {i+1} ({category} Focus)")
-                st.info(question_text)
-                st.text_area("Your response:", placeholder="Type your answer here...", key=f"ans_{i}")
-
-        st.markdown("---")
-        st.subheader("Final Report Quality Review Check")
-        if eval_sum:
-            overall = eval_sum.get('overall_score', 'N/A')
-            st.metric(label="Overall Quality Score", value=f"{overall}/100")
-            st.write("**Evaluation Feedback:**")
-            st.markdown(eval_sum.get("feedback") or "No feedback available.")
-        else:
-            st.warning("Evaluation summary is not available. Re-run the coaching pipeline.")
+                with st.expander(f"Question {i} ({category})"):
+                    st.info(question_text)
     else:
-        st.info("Run the agent dashboard from the sidebar to see mock questions.")
+        st.info("👉 Run the agent dashboard from the sidebar to generate your adaptive quiz!")

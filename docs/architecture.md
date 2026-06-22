@@ -8,7 +8,7 @@ SkillBridge AI is a robust multi-agent system built using a **choreographed pipe
 
 The system consists of three primary tiers:
 1. **Interactive User Interface (Agentic UI):** Built with Streamlit, exposing real-time status indicators, interactive career configuration selectors, and comprehensive safety review logs.
-2. **Multi-Agent Choreography Engine:** A sequence of 10 specialized agent classes. Each agent manages its own prompt construction, queries the tool layer, and passes structured outcomes to the shared state dictionary.
+2. **Multi-Agent Choreography Engine:** A sequence of 11 specialized agent classes plus UI-driven adaptive quiz engine. Each agent manages its own prompt construction, queries the tool layer, and passes structured outcomes to the shared state dictionary.
 3. **MCP-Style Tool Layer:** A central registry (`MCPToolRegistry`) that abstracts all functional tasks (such as database queries, math evaluations, safety checks, and report formatting) from LLM generation.
 
 ---
@@ -17,7 +17,7 @@ The system consists of three primary tiers:
 
 Rather than using an orchestrator that actively prompts and decides subsequent actions dynamically at each step (which increases LLM token usage and latency), SkillBridge AI implements a **choreographed state pipeline**.
 
-### Workflow Order
+### Workflow Order (Primary Pipeline)
 
 ```mermaid
 graph TD
@@ -32,8 +32,17 @@ graph TD
     I --> J[InterviewAgent: Generates Tailored Mock Questions]
     J --> K[EvaluationAgent: Evaluates Mock Answers & Updates Score]
     K --> L[CoordinatorAgent: Collects State & Formats Output]
-    L --> M[End]
+    L --> M[Output Ready in UI]
+    M --> N[AdaptiveQuizAgent: User Generates Personalized Quiz]
+    N --> O[Per-Question Evaluation & Feedback]
 ```
+
+### Adaptive Quiz Engine (Post-Pipeline)
+After the primary coaching pipeline completes, users can access the **Adaptive Quiz Agent** UI component to:
+* Generate role-specific quizzes tailored to their target role and skill gaps
+* Answer questions across multiple types (MCQ, coding, text, project-based)
+* Receive instant per-question feedback and scores
+* View weak skills and personalized next steps
 
 ### Coordinator Agent Role
 The `CoordinatorAgent` controls the execution pipeline:

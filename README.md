@@ -95,7 +95,33 @@ graph TD
 | **Portfolio Project**| Designs a high-impact, custom project | Skill gaps, target role | Project name, stack, milestones| Internal builder |
 | **README** | Drafts repository-ready documentation | Project milestones & stack | Markdown GitHub README file | `generate_project_readme` |
 | **Interview** | Serves targeted mock questions | Skill gaps, target role | Technical mock questions | Internal builder |
+| **Adaptive Quiz** | Generates & evaluates role-specific quizzes | Target role, skill gaps | Personalized questions, per-question scores & feedback | `load_question_bank`, `select_adaptive_questions`, `evaluate_*_answer`, `calculate_quiz_score` |
 | **Evaluation** | Grades student answers & updates score | Mock responses & questions | Evaluation grade & feedback | `calculate_category_scores` |
+
+---
+
+## 🎯 Adaptive Interview & Quiz Engine
+
+The **Adaptive Quiz Agent** enhances the traditional mock interview experience with an intelligent, role-specific question bank and per-question evaluation system:
+
+### Key Features:
+- **Local Question Bank**: 30+ curated questions spanning 5 internship roles (AI/ML, Data Analyst, Python Developer, Web Developer, GenAI)
+- **Question Categories**: Technical MCQ, Coding Problems, Project-Based, HR, and Aptitude/Quant questions
+- **Adaptive Selection**: Questions are selected based on target role and missing skills, with priority given to skill gaps
+- **Per-Question Evaluation**:
+  - **MCQ**: Instant validation against expected answers
+  - **Text Answers**: Rubric-based scoring using keyword matching (no API required)
+  - **Coding**: Safe static analysis without code execution (checks for structure, patterns, and dangerous operations)
+- **Personalized Feedback**: Each answer receives a score (0-10), specific feedback, and improvement tips
+- **Offline Mode**: Works completely without Gemini API key using deterministic rubric-based evaluation
+- **Optional Gemini Enhancement**: When API key is available, text answers can be enhanced with LLM-based feedback
+
+### Workflow:
+1. User selects preferred language (Python/Java/General) and quiz size (3/5/7 questions)
+2. **Adaptive Quiz Agent** generates role-specific questions prioritizing missing skills
+3. User answers questions (MCQ, text, or code)
+4. System evaluates each answer with detailed feedback
+5. Displays overall score, weak skills, and personalized next steps
 
 ---
 
