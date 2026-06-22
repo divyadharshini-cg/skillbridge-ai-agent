@@ -93,21 +93,100 @@ class ProfileAnalyzerAgent:
                 pass
 
         # Deterministic Fallback Parser
-        # Look for explicit field labels in the text
-        for line in profile_text.splitlines():
-            line_strip = line.strip()
+        lines = profile_text.splitlines()
+
+        def normalize_text(text: str) -> str:
+            return re.sub(r'^[\s\-\*•]+', '', text).strip()
+
+        def append_field(field: str, value: str):
+            if not value:
+                return
+            value = value.strip()
+            if not value:
+                return
+            if extracted[field] in ("N/A", "", "Student Candidate", "Software Engineer Intern"):
+                extracted[field] = value
+            elif value not in extracted[field]:
+                extracted[field] = f"{extracted[field]}, {value}"
+
+        def set_field(field: str, value: str):
+            if not value:
+                return
+            extracted[field] = value.strip()
+
+        def parse_branch_from_degree(text: str) -> str:
+            candidate = text.strip()
+            candidate = re.sub(r'^(education|degree|program|course|qualification)[:\s\-]*', '', candidate, flags=re.I).strip()
+            match = re.search(
+                r'(?:(?:B\.?Tech|B\.?E\.?|BE|Bachelor(?: of(?: Science| Technology| Engineering)?)?|Bachelors?)(?:\s*(?:in|with))?)\s*(?P<branch>.+)$',
+                candidate,
+                flags=re.I
+            )
+            if match:
+                branch_text = match.group('branch').strip()
+                branch_text = re.sub(r'\b(?:\d+(?:st|nd|rd|th)|first|second|third|final)\s+year\b.*$', '', branch_text, flags=re.I).strip()
+                branch_text = re.sub(r'\s*undergraduate\s*$', '', branch_text, flags=re.I).strip()
+                return branch_text
+            return ""
+
+        def infer_branch_from_education(education_text: str) -> str:
+            if not education_text or education_text in ("N/A", ""):
+                return ""
+            branch_text = parse_branch_from_degree(education_text)
+            if branch_text:
+                return branch_text
+            year_start = re.match(r'^(?:\d+(?:st|nd|rd|th)|first|second|third|final)\s+year\s*(?:undergraduate)?\s*(?P<branch>.+)$', education_text, flags=re.I)
+            if year_start:
+                branch = year_start.group('branch').strip()
+                return re.sub(r'\s*undergraduate\s*$', '', branch, flags=re.I).strip()
+            branch_text = re.sub(r'\b(?:\d+(?:st|nd|rd|th)|first|second|third|final)\s+year\b.*$', '', education_text, flags=re.I).strip(' ,')
+            branch_text = re.sub(r'\s*undergraduate\s*$', '', branch_text, flags=re.I).strip()
+            if branch_text and branch_text.lower() != education_text.lower():
+                return branch_text
+            if re.fullmatch(r'[A-Za-z0-9&\s\.\-]{3,100}', education_text):
+                return education_text.strip()
+            return ""
+
+        label_prefixes = [
+            "name:", "student name:",
+            "education:", "degree:", "university:", "course:", "program:", "qualification:",
+            "branch:", "department:", "major:", "branch/major:",
+            "skills:", "core skills:", "existing skills:",
+            "projects:", "existing projects:",
+            "target role:", "role:", "target:",
+            "learning time:", "hours:", "hours per day:",
+            "deadline:", "days:", "days left:"
+        ]
+
+        for idx, line in enumerate(lines):
+            line_strip = normalize_text(line)
             if not line_strip:
                 continue
-                
-            # Lowercase for check, but extract original value
+
             lower_line = line_strip.lower()
-            
+
             if any(lower_line.startswith(p) for p in ["name:", "student name:"]):
-                extracted["name"] = line_strip.split(':', 1)[1].strip()
-            elif any(lower_line.startswith(p) for p in ["education:", "degree:", "university:"]):
-                extracted["education"] = line_strip.split(':', 1)[1].strip()
-            elif any(lower_line.startswith(p) for p in ["branch:", "department:", "major:"]):
-                extracted["branch"] = line_strip.split(':', 1)[1].strip()
+                append_field("name", line_strip.split(':', 1)[1])
+            elif any(lower_line.startswith(p) for p in ["education:", "degree:", "university:", "course:", "program:", "qualification:"]):
+                value = line_strip.split(':', 1)[1].strip()
+                if value:
+                    append_field("education", value)
+                else:
+                    block_lines = []
+                    for next_line in lines[idx + 1:]:
+                        next_strip = normalize_text(next_line)
+                        next_lower = next_strip.lower()
+                        if not next_strip or any(next_lower.startswith(prefix) for prefix in label_prefixes):
+                            break
+                        block_lines.append(next_strip)
+                    if block_lines:
+                        append_field("education", " ".join(block_lines))
+                if extracted["branch"] in ("N/A", ""):
+                    branch_candidate = parse_branch_from_degree(value or (" ".join(block_lines) if value == "" else ""))
+                    if branch_candidate:
+                        extracted["branch"] = branch_candidate
+            elif any(lower_line.startswith(p) for p in ["branch:", "department:", "major:", "branch/major:"]):
+                set_field("branch", line_strip.split(':', 1)[1])
             elif any(lower_line.startswith(p) for p in ["skills:", "core skills:", "existing skills:"]):
                 val = line_strip.split(':', 1)[1].strip()
                 extracted["current_skills"] = [s.strip() for s in val.split(",") if s.strip()]
@@ -128,8 +207,20 @@ class ProfileAnalyzerAgent:
                     extracted["deadline"] = int(re.search(r'\d+', val).group())
                 except Exception:
                     pass
+            elif re.search(r'\b(?:B\.?Tech|B\.?E\.?|BE|Bachelor(?: of(?: Science| Technology| Engineering)?)?|Bachelors?)\b', line_strip, flags=re.I):
+                append_field("education", line_strip)
+                if extracted["branch"] in ("N/A", ""):
+                    branch_candidate = parse_branch_from_degree(line_strip)
+                    if branch_candidate:
+                        extracted["branch"] = branch_candidate
+            elif re.search(r'\b(?:2nd|3rd|4th|final|second|third|first)\s+year\b', lower_line, flags=re.I):
+                append_field("education", line_strip)
 
-        # If no skills were explicitly parsed, search the entire text for common keywords
+        if extracted["branch"] in ("N/A", "") and extracted["education"] not in ("N/A", ""):
+            branch_candidate = infer_branch_from_education(extracted["education"])
+            if branch_candidate and branch_candidate.lower() != extracted["education"].lower():
+                extracted["branch"] = branch_candidate
+
         if not extracted["current_skills"]:
             extracted["current_skills"] = MatchingTools.extract_keywords(profile_text)
 

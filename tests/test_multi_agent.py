@@ -65,6 +65,45 @@ def test_profile_analyzer_text():
     assert profile["learning_time"] == 1.5
     assert profile["deadline"] == 30
 
+
+def test_profile_analyzer_multiline_education_block():
+    agent = ProfileAnalyzerAgent()
+    profile_text = (
+        "Name: Priya Singh\n"
+        "Education:\n"
+        "B.Tech Artificial Intelligence and Data Science\n"
+        "2nd Year Undergraduate\n"
+        "Skills: Python, NumPy\n"
+    )
+    profile = agent.analyze(profile_text)
+    assert profile["education"] == "B.Tech Artificial Intelligence and Data Science 2nd Year Undergraduate"
+    assert profile["branch"] == "Artificial Intelligence and Data Science"
+    assert "Python" in profile["current_skills"]
+
+
+def test_profile_analyzer_btech_alias_and_branch():
+    agent = ProfileAnalyzerAgent()
+    profile_text = (
+        "Name: Rahul Verma\n"
+        "Education: B.Tech AI & DS\n"
+        "Skills: Python, SQL\n"
+    )
+    profile = agent.analyze(profile_text)
+    assert profile["education"] == "B.Tech AI & DS"
+    assert profile["branch"] == "AI & DS"
+
+
+def test_profile_analyzer_branch_major_without_label():
+    agent = ProfileAnalyzerAgent()
+    profile_text = (
+        "Name: Swati Rao\n"
+        "Education: 2nd Year Computer Science\n"
+        "Skills: Java, C++\n"
+    )
+    profile = agent.analyze(profile_text)
+    assert "Computer Science" in profile["branch"]
+    assert "2nd Year" in profile["education"]
+
 def test_skill_gap_agent():
     agent = SkillGapAgent()
     student_skills = ["Python", "Git"]
