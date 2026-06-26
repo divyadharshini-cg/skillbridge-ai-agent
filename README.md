@@ -50,37 +50,42 @@ SkillBridge AI operates using a **choreographed multi-agent pipeline**. Rather t
 ### 📐 Mermaid Architecture Diagram
 
 ```mermaid
-graph TD
+flowchart TD
     User([Student Input & Resume]) --> COORD[Coordinator Agent]
-    COORD --> SAFETY[Safety Agent]
-    
-    subgraph Audit & Redaction Phase
-        SAFETY -->|Verify Honesty & Redact PII| PA[Profile Analyzer Agent]
+
+    subgraph Audit["Audit & Redaction Phase"]
+        COORD --> SAFETY[Safety Agent]
+        SAFETY --> PA[Profile Analyzer Agent]
     end
-    
-    subgraph Core Analysis Phase
-        PA -->|Extract Skills & Background| SGA[Skill Gap Agent]
-        SGA -->|Map Missing Skills| IMA[Internship Match Agent]
-        IMA -->|Calculate Readiness Score| RAM[Roadmap Agent]
+
+    subgraph Core["Core Analysis Phase"]
+        PA --> SGA[Skill Gap Agent]
+        SGA --> IMA[Internship Match Agent]
+        IMA --> RAM[Roadmap Agent]
     end
-    
-    subgraph Tailored Guidance Phase
-        RAM -->|Create 30-Day Plan| PPA[Portfolio Project Agent]
-        PPA -->|Design Custom Project| REA[README Agent]
-        REA -->|Generate GitHub Template| IA[Interview Agent]
+
+    subgraph Guidance["Tailored Guidance Phase"]
+        RAM --> PPA[Portfolio Project Agent]
+        PPA --> REA[README Agent]
+        REA --> IA[Interview / Adaptive Quiz Agent]
     end
-    
-    subgraph Mock Evaluation Phase
-        IA -->|Conduct Tailored Interview| EVA[Evaluation Agent]
-        EVA -->|Grade & Update Readiness| Output[Dashboard & Exported Reports]
+
+    subgraph Evaluation["Mock Evaluation Phase"]
+        IA --> EVA[Evaluation Agent]
+        EVA --> Output[Dashboard & Exported Reports]
     end
-    
-    db[(Local JSON Role DB)] -.-> SGA
-    db -.-> IMA
-    
-    COORD -.->|Orchestrate Pipeline| SAFETY
-    COORD -.->|Collect Safe Exports| Output
+
+    DB[(Local JSON Role Database)] --> SGA
+    DB --> IMA
+
+    Tools[MCP-style Tool Layer] --> SAFETY
+    Tools --> SGA
+    Tools --> IMA
+    Tools --> RAM
+    Tools --> REA
+    Tools --> IA
 ```
+
 
 ### 🤖 Agent Responsibilities
 
