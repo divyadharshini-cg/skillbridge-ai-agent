@@ -1,6 +1,6 @@
 # SkillBridge AI: Multi-Agent Internship Readiness Coach & Portfolio Builder
 
-SkillBridge AI is a state-of-the-art multi-agent career coaching platform designed specifically for college students and career transitioners seeking their first technical internships. Developed as a portfolio-ready capstone project for the **Kaggle AI Agents Intensive Vibe Coding Hackathon**, it leverages a choreographed multi-agent pipeline and an MCP-style tool layer to analyze candidate profiles, map capability gaps, generate tailored study plans, design custom portfolio projects, and run real-time interactive mock interviews.
+SkillBridge AI is a practical multi-agent career coaching platform designed for college students and career transitioners seeking their first technical internships.. Developed as a portfolio-ready capstone project for the **Kaggle AI Agents Intensive Vibe Coding Hackathon**, it leverages a choreographed multi-agent pipeline and an MCP-style tool layer to analyze candidate profiles, map capability gaps, generate tailored study plans, design custom portfolio projects, and run real-time interactive mock interviews.
 
 ---
 
@@ -115,8 +115,7 @@ SkillBridge AI features a decoupled, **Model Context Protocol (MCP) style tool l
 * **Multi-Agent Orchestration:** Pure Python state pattern with choreographed agent modules.
 * **LLM Core / LLM Client:** Google Gemini API (`google-generativeai` package) with robust connection retry logic.
 * **Database:** Local JSON role matching schema (`data/role_requirements.json`) featuring industry standard internship skill matrix maps.
-* **Test Suite:** [Pytest](https://docs.pytest.org/) verifying scoring rules, PII redaction, mock exports, and agent modules.
-
+* **Test Suite:** Pytest with 99 passing tests covering agent orchestration, scoring tools, PII redaction, safe exports, quiz evaluation, and profile extraction.
 ---
 
 ## 🌟 Wow Feature: Internship Readiness Score
@@ -167,7 +166,7 @@ SkillBridge AI works **fully and robustly even without a Gemini API key**:
 SkillBridge AI was developed in collaboration with **Antigravity**, Google DeepMind's agentic coding assistant:
 * **Orchestration Execution:** Antigravity was used to implement the choreographed agents and build the local tools registry.
 * **Security Hardening:** Antigravity designed the multi-regex safety sanitizers, integrated the PII redaction layer, and modified the Streamlit interface to display safety flags.
-* **Test Scaffolding:** Antigravity developed the full 59-test suite covering edge cases, fake claims, local database scoring, and markdown exports, securing 100% pass rates.
+* **Test Scaffolding:**The project includes a pytest suite with 99 passing tests covering agents, tools, safety, exports, quiz evaluation, adaptive interview logic, and profile extraction.
 
 ---
 
